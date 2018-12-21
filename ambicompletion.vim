@@ -56,7 +56,7 @@ if !exists('g:AmbiCompletion_cacheCheckpoint')
 endif
 
 
-let g:AmbiCompletion__DEBUG = 0
+let g:AmbiCompletion__DEBUG = 1
 
 let g:AmbiCompletion__WORD_SPLITTER = '\>\zs\ze\<\|\<\|\>\|\s'
 let g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD = 0.7
@@ -170,12 +170,11 @@ call s:HOGE('vvv updating cache vvv')
 call s:HOGE('^^^ updated cache ^^^')
 
     " Candidates need contain at least one char in a:base
-    let CONTAINDEDIN_REGEXP = '\V\[' . join(uniq(sort(split(a:base, '\zs'))), '') . ']'
+    let CONTAINDEDIN_REGEXP = '\V\[' . tolower(join(uniq(sort(split(a:base, '\zs'))), '')) . ']'
     " Candidates need have their length at least considered-similar LSV value
     let min_word_elem_len = (base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD + 1) / 2
 
     let results = []
-    let wordset = {}
 
 call s:HOGE('vvv merging global candidates vvv')
     "let candidates = a:words
@@ -189,14 +188,24 @@ call s:HOGE('vvv pre-filtering candidates('. string(len(candidates)) . ') vvv')
     "            \ && val =~ CONTAINDEDIN_REGEXP 
     "            \ && base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
     "            \ })
+
     call filter(candidates, { idx, val -> 
                 \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD-0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
                 \ })
+    call filter(candidates, { idx, val ->
+                \ base_self_lcsv - 1 <= s:estimate(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
+                \ })
+    
     "commented-out for better spped
     "call filter(candidates, { idx, val -> 
     "            \ base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD <= s:AmbiCompletion__LCS(baselist, split(val, '\zs'))
     "            \ })
 call s:HOGE('^^^ pre-filtered candidates('. string(len(candidates)) . ') ^^^')
+"call s:LOG(base_self_lcsv)
+"call s:LOG(substitute("deepest", CONTAINDEDIN_REGEXP, ' ', 'g'))
+"call s:LOG(s:estimate(substitute("deepest", CONTAINDEDIN_REGEXP, ' ', 'g')))
+"call s:LOG(count(candidates, "deepest"))
+"call s:LOG(candidates[0] . ' ' . s:estimate(substitute(candidates[0], CONTAINDEDIN_REGEXP, ' ', 'g')))
 
 " call s:HOGE('vvv sorting candidates vvv')
 "     call sort(candidates, {w1, w2 -> strchars(w1) < strchars(w2)})
@@ -205,7 +214,7 @@ call s:HOGE('^^^ pre-filtered candidates('. string(len(candidates)) . ') ^^^')
 call s:HOGE('vvv filtering candidates('. string(len(candidates)) . ') vvv')
     let baselist = split(tolower(a:base), '\zs')
 
-    let bestscore = 0
+    let bestscore = len(baselist)*2-1
     for word in candidates
         let lcsv = s:AmbiCompletion__LCS(baselist, split(tolower(word), '\zs'), bestscore)
         "echom 'lcsv: ' . word . ' ' . string(lcsv)
@@ -273,13 +282,17 @@ function! s:AmbiCompletion__LCS(word1, word2, bestscore)
             endif
             let curr[i2] = max([ prev[i2-1] + x, prev[i2], curr[i2-1] ])
 
+            "call s:LOGHOOK(a:word2, "deepest", 'w1['.(i1-1).']:'.w1[i1-1])
+            "call s:LOGHOOK(a:word2, "deepest", 'w2['.(i2-1).']:'.w2[i2-1])
+            "call s:LOGHOOK(a:word2, "deepest", join(a:word2, '') . '[' . string(i2) . '] score:' . string(curr[i2]) . ' curr:[' . string(curr) . '] potential:' . string(2*(len2-1-i2)) . ' best:' . string(a:bestscore))
+            "call s:LOGHOOK(a:word2, "deepest", 'i1(' . string(i1) . ') == i2('. string(i2) . ') || len1-1(' . string(len1-1) . ') <= i1(' . string(i1) . ')')
+
             " speed tuning
-            if i2 >= len1-1 && !superstring
-                "call s:LOG(join(a:word2, '') . '[' . string(i2) . '] score:' . string(curr[i2]) . ' potential:' . string(2*(len2-1-i2)) . ' best:' . string(a:bestscore - 3))
-                if i2 >= len1-1 && curr[i2] + 2*(len2-1-i2) < a:bestscore - 3 
+            if (i1 == i2 || len1-1 <= i1) && !superstring
+                "call s:LOGHOOK(a:word2, "deepest", 'curr[i2]('. string(curr[i2]) .') + 2*(len2-1-i2)(' . string(2*(len2-1-i2)) . ') < a:bestscore - 1('.string(a:bestscore - 1).')')
+                if curr[i2] + 2*(len2-1-i2) < a:bestscore - 1
                     " no hope...
-                    "call s:LOG('no hope with ' . join(a:word2, '') . '[' . string(i2) . '] score:' . string(curr[i2]) . ' curr:[' . string(curr) . '] potential:' . string(2*(len2-1-i2)) . ' best:' . string(a:bestscore - 3))
-                    return curr[i2]
+                    return 0 "curr[i2]
                 endif
                 "if curr[i2] + 2*(len2-1-i2) < a:bestscore
                 "    "call s:LOG("  x")
@@ -294,6 +307,20 @@ function! s:AmbiCompletion__LCS(word1, word2, bestscore)
     endfor
     "echom string(prev)
     return prev[len2-1] "mutibyte cared
+endfunction
+
+function! s:estimate(str)
+    let score = 0
+    let combo = 0
+    for i in range(0, len(a:str))
+        if a:str[i] == ' '
+            let score = score + 1 + combo
+            let combo = 1
+        else
+            let combo = 0
+        endif
+    endfor
+    return score
 endfunction
 
 " reverse order
@@ -346,5 +373,17 @@ endfunction
 function! s:LOG(msg)
     if g:AmbiCompletion__DEBUG
         echom strftime('%c') . ' ' . a:msg
+    endif
+endfunction
+
+function! s:LOGHOOK(word, trigger, msg)
+    if g:AmbiCompletion__DEBUG
+        let word = a:word
+        if type(word) == 3 "List
+            let word = join(word, '')
+        endif
+        if word == a:trigger
+            echom strftime('%c') . ' ' . a:msg
+        endif
     endif
 endfunction
