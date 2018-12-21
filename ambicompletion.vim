@@ -56,7 +56,7 @@ if !exists('g:AmbiCompletion_cacheCheckpoint')
 endif
 
 
-let g:AmbiCompletion__DEBUG = 1
+let g:AmbiCompletion__DEBUG = 0
 
 let g:AmbiCompletion__WORD_SPLITTER = '\>\zs\ze\<\|\<\|\>\|\s'
 let g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD = 0.7
@@ -193,7 +193,7 @@ call s:HOGE('vvv pre-filtering candidates('. string(len(candidates)) . ') vvv')
                 \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD-0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
                 \ })
     call filter(candidates, { idx, val ->
-                \ base_self_lcsv - 1 <= s:estimate(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
+                \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD-0.1) <= s:estimate(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
                 \ })
     
     "commented-out for better spped
@@ -201,11 +201,6 @@ call s:HOGE('vvv pre-filtering candidates('. string(len(candidates)) . ') vvv')
     "            \ base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD <= s:AmbiCompletion__LCS(baselist, split(val, '\zs'))
     "            \ })
 call s:HOGE('^^^ pre-filtered candidates('. string(len(candidates)) . ') ^^^')
-"call s:LOG(base_self_lcsv)
-"call s:LOG(substitute("deepest", CONTAINDEDIN_REGEXP, ' ', 'g'))
-"call s:LOG(s:estimate(substitute("deepest", CONTAINDEDIN_REGEXP, ' ', 'g')))
-"call s:LOG(count(candidates, "deepest"))
-"call s:LOG(candidates[0] . ' ' . s:estimate(substitute(candidates[0], CONTAINDEDIN_REGEXP, ' ', 'g')))
 
 " call s:HOGE('vvv sorting candidates vvv')
 "     call sort(candidates, {w1, w2 -> strchars(w1) < strchars(w2)})
@@ -214,7 +209,7 @@ call s:HOGE('^^^ pre-filtered candidates('. string(len(candidates)) . ') ^^^')
 call s:HOGE('vvv filtering candidates('. string(len(candidates)) . ') vvv')
     let baselist = split(tolower(a:base), '\zs')
 
-    let bestscore = len(baselist)*2-1
+    let bestscore = base_self_lcsv
     for word in candidates
         let lcsv = s:AmbiCompletion__LCS(baselist, split(tolower(word), '\zs'), bestscore)
         "echom 'lcsv: ' . word . ' ' . string(lcsv)
@@ -282,15 +277,15 @@ function! s:AmbiCompletion__LCS(word1, word2, bestscore)
             endif
             let curr[i2] = max([ prev[i2-1] + x, prev[i2], curr[i2-1] ])
 
-            "call s:LOGHOOK(a:word2, "deepest", 'w1['.(i1-1).']:'.w1[i1-1])
-            "call s:LOGHOOK(a:word2, "deepest", 'w2['.(i2-1).']:'.w2[i2-1])
-            "call s:LOGHOOK(a:word2, "deepest", join(a:word2, '') . '[' . string(i2) . '] score:' . string(curr[i2]) . ' curr:[' . string(curr) . '] potential:' . string(2*(len2-1-i2)) . ' best:' . string(a:bestscore))
-            "call s:LOGHOOK(a:word2, "deepest", 'i1(' . string(i1) . ') == i2('. string(i2) . ') || len1-1(' . string(len1-1) . ') <= i1(' . string(i1) . ')')
+            "call s:LOGHOOK(a:word2, "word_here", 'w1['.(i1-1).']:'.w1[i1-1])
+            "call s:LOGHOOK(a:word2, "word_here", 'w2['.(i2-1).']:'.w2[i2-1])
+            "call s:LOGHOOK(a:word2, "word_here", join(a:word2, '') . '[' . string(i2) . '] score:' . string(curr[i2]) . ' curr:[' . string(curr) . '] potential:' . string(2*(len2-1-i2)) . ' best:' . string(a:bestscore))
+            "call s:LOGHOOK(a:word2, "word_here", 'i1(' . string(i1) . ') == i2('. string(i2) . ') || len1-1(' . string(len1-1) . ') <= i1(' . string(i1) . ')')
 
             " speed tuning
             if (i1 == i2 || len1-1 <= i1) && !superstring
                 "call s:LOGHOOK(a:word2, "deepest", 'curr[i2]('. string(curr[i2]) .') + 2*(len2-1-i2)(' . string(2*(len2-1-i2)) . ') < a:bestscore - 1('.string(a:bestscore - 1).')')
-                if curr[i2] + 2*(len2-1-i2) < a:bestscore - 1
+                if curr[i2] + 2*(len2-1-i2) < a:bestscore * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD + 1
                     " no hope...
                     return 0 "curr[i2]
                 endif
