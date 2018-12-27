@@ -182,24 +182,12 @@ call s:HOGE('vvv merging global candidates vvv')
 call s:HOGE('^^^ merged global candidates ^^^')
 
 call s:HOGE('vvv pre-filtering candidates('. string(len(candidates)) . ') vvv')
-    let baselist = split(a:base, '\zs')
-    "call filter(candidates, { idx, val -> 
-    "            \ strchars(val) >= min_word_elem_len 
-    "            \ && val =~ CONTAINDEDIN_REGEXP 
-    "            \ && base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
-    "            \ })
-
     call filter(candidates, { idx, val -> 
                 \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD-0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
                 \ })
     call filter(candidates, { idx, val ->
                 \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD-0.1) <= s:estimate(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
                 \ })
-    
-    "commented-out for better spped
-    "call filter(candidates, { idx, val -> 
-    "            \ base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD <= s:AmbiCompletion__LCS(baselist, split(val, '\zs'))
-    "            \ })
 call s:HOGE('^^^ pre-filtered candidates('. string(len(candidates)) . ') ^^^')
 
 " call s:HOGE('vvv sorting candidates vvv')
