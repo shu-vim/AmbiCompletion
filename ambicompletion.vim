@@ -370,3 +370,7 @@ function! s:LOGHOOK(word, trigger, msg)
         endif
     endif
 endfunction
+
+function! g:AmbiCompletionTEST(w1, w2)
+    echo "'" . a:w1 . "' VS '" . a:w2 . "' => " . string(s:AmbiCompletion__LCS(split(a:w1, '\V\zs'), split(a:w2, '\V\zs'), 0))
+endfunction
