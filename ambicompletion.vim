@@ -58,7 +58,7 @@ endif
 
 let g:AmbiCompletion__DEBUG = 0
 
-let g:AmbiCompletion__WORD_SPLITTER = '\>\zs\ze\<\|\<\|\>\|\s'
+let g:AmbiCompletion__WORD_SPLITTER = '\V\>\zs\ze\<\|\<\|\>\|\s'
 let g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD = 0.7
 
 if !exists("s:words")
@@ -132,7 +132,7 @@ function! g:AmbiCompletion(findstart, base)
         "return match(cur_text, '\V\w\+\$')
 
         " I want get a last word(maybe a multi-byte char)!!
-        let cur_words = split(cur_text, '\<')
+        let cur_words = split(cur_text, '\V\<')
         if len(cur_words) == 0
             return match(cur_text, '\V\w\+\$')
         else
@@ -157,7 +157,7 @@ call s:HOGE('=== start completion ===')
 
     " Care about a multi-byte word
     let baselen = strlen(substitute(a:base, '.', 'x', 'g'))
-    let base_self_lcsv = s:AmbiCompletion__LCS(split(a:base, '\zs'), split(a:base, '\zs'), 0)
+    let base_self_lcsv = s:AmbiCompletion__LCS(split(a:base, '\V\zs'), split(a:base, '\V\zs'), 0)
     "let baselen = strlen(a:base)
 
 	if baselen == 0
@@ -170,7 +170,7 @@ call s:HOGE('vvv updating cache vvv')
 call s:HOGE('^^^ updated cache ^^^')
 
     " Candidates need contain at least one char in a:base
-    let CONTAINDEDIN_REGEXP = '\V\[' . tolower(join(uniq(sort(split(a:base, '\zs'))), '')) . ']'
+    let CONTAINDEDIN_REGEXP = '\V\[' . tolower(join(uniq(sort(split(a:base, '\V\zs'))), '')) . ']'
     " Candidates need have their length at least considered-similar LSV value
     let min_word_elem_len = (base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD + 1) / 2
 
@@ -195,11 +195,11 @@ call s:HOGE('^^^ pre-filtered candidates('. string(len(candidates)) . ') ^^^')
 " call s:HOGE('^^^ sorted candidates ^^^')
 
 call s:HOGE('vvv filtering candidates('. string(len(candidates)) . ') vvv')
-    let baselist = split(tolower(a:base), '\zs')
+    let baselist = split(tolower(a:base), '\V\zs')
 
     let bestscore = base_self_lcsv
     for word in candidates
-        let lcsv = s:AmbiCompletion__LCS(baselist, split(tolower(word), '\zs'), bestscore)
+        let lcsv = s:AmbiCompletion__LCS(baselist, split(tolower(word), '\V\zs'), bestscore)
         "echom 'lcsv: ' . word . ' ' . string(lcsv)
         "call s:LOG(word . ' ' . lcsv)
 
