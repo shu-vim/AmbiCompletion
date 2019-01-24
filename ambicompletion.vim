@@ -61,6 +61,14 @@ let g:AmbiCompletion__DEBUG = 0
 let g:AmbiCompletion__WORD_SPLITTER = '\V\>\zs\ze\<\|\<\|\>\|\s'
 let g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD = 0.7
 
+if !exists("s:lastWord")
+    let s:lastWord = ""
+endif
+
+if !exists("s:again")
+    let s:again = 0
+endif
+
 if !exists("s:words")
     " {word: first_bufnr}
     let s:words = {}
@@ -72,6 +80,7 @@ if !exists("s:bufs")
 endif
 
 function! s:clearCache()
+    let s:lastWord = ""
     let s:words = {}
     let s:bufs = {}
 endfunction
@@ -164,15 +173,22 @@ call s:HOGE('=== start completion ===')
 		return []
 	endif
 
+    " geta
+    let geta = 1.0
+    if s:again || s:lastWord == a:base
+        let geta = 0.5
+    else
+        let s:lastWord = a:base
 call s:HOGE('vvv updating cache vvv')
-    " Updating may be skipped internally
-    call s:scanBufs()
+        " Updating may be skipped internally
+        call s:scanBufs()
 call s:HOGE('^^^ updated cache ^^^')
+    endif
 
     " Candidates need contain at least one char in a:base
     let CONTAINDEDIN_REGEXP = '\V\[' . tolower(join(uniq(sort(split(a:base, '\V\zs'))), '')) . ']'
     " Candidates need have their length at least considered-similar LSV value
-    let min_word_elem_len = (base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD + 1) / 2
+    let min_word_elem_len = (base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD * geta + 1) / 2
 
     let results = []
 
@@ -183,10 +199,10 @@ call s:HOGE('^^^ merged global candidates ^^^')
 
 call s:HOGE('vvv pre-filtering candidates('. string(len(candidates)) . ') vvv')
     call filter(candidates, { idx, val -> 
-                \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD-0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
+                \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD * geta - 0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
                 \ })
     call filter(candidates, { idx, val ->
-                \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD-0.1) <= s:estimate(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
+                \ base_self_lcsv * (g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD * geta - 0.1) <= s:estimate(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
                 \ })
 call s:HOGE('^^^ pre-filtered candidates('. string(len(candidates)) . ') ^^^')
 
@@ -199,11 +215,13 @@ call s:HOGE('vvv filtering candidates('. string(len(candidates)) . ') vvv')
 
     let bestscore = base_self_lcsv
     for word in candidates
-        let lcsv = s:AmbiCompletion__LCS(baselist, split(tolower(word), '\V\zs'), bestscore)
+        let lcsv = s:AmbiCompletion__LCS(baselist, split(tolower(word), '\V\zs'), bestscore * geta)
         "echom 'lcsv: ' . word . ' ' . string(lcsv)
         "call s:LOG(word . ' ' . lcsv)
 
-        if 0 < lcsv && base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD <= lcsv
+        "call s:LOG(word . ' ' . string(lcsv))
+        "call s:LOG(word . ' ' . string(base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD * geta))
+        if 0 < lcsv && base_self_lcsv * g:AmbiCompletion__LCSV_COEFFICIENT_THRESHOLD * geta <= lcsv
             "let bufnr = s:words[word]
             call add(results, [word, lcsv])
 
@@ -217,6 +235,13 @@ call s:HOGE('vvv filtering candidates('. string(len(candidates)) . ') vvv')
         endif
     endfor
 call s:HOGE('^^^ filtered candidates('.len(results).') ^^^')
+
+    if len(results) <= 1 && !s:again
+        call s:LOG("- - again!! - -")
+        let s:again = 1
+        call  s:complete(a:findstart, a:base)
+        return
+    endif
 
     "LCS
     call sort(results, function('s:lcscompare'))
@@ -237,6 +262,8 @@ call s:HOGE('=== end completion ===')
     for r in results
         call complete_add({'word': r[0], 'menu': r[1]})
     endfor
+
+    let s:again = 0
 endfunction
 
 function! s:AmbiCompletion__LCS(word1, word2, bestscore)
