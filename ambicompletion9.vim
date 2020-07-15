@@ -195,7 +195,7 @@ def Complete(findstart: number, base: string)
 call PerfLog('=== start completion ===')
 
     " Care about a multi-byte word
-    let baselen = strlen(substitute(base, '.', 'x', 'g'))
+    let baselen = strchars(base)
     let baseSelfScore = CalcScore(SplitChars(base), SplitChars(base), 0.0)
     call PerfLog('baseSelfScore=' .. string(baseSelfScore))
     "let baselen = strlen(base)
