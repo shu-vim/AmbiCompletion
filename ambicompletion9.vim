@@ -216,9 +216,6 @@ call PerfLog('vvv updating cache vvv')
 call PerfLog('^^^ updated cache ^^^')
     endif
 
-    " Candidates need contain at least one char in base
-    let CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
-
     let results = []
 
 call PerfLog('vvv merging global candidates vvv')
@@ -227,6 +224,9 @@ call PerfLog('vvv merging global candidates vvv')
 call PerfLog('^^^ merged global candidates ^^^')
 
 call PerfLog('vvv pre-filtering candidates(' .. string(len(candidates)) .. ') vvv')
+    " Candidates need contain at least one char in base
+    let CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
+
     "call filter(candidates, { idx, val -> 
     "            \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
     "            \ })
