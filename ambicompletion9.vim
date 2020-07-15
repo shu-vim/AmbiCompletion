@@ -77,7 +77,7 @@ if !exists('g:AmbiCompletion_preferPrefixMatch')
 endif
 
 
-const AmbiCompletion__DEBUG = 0
+const AmbiCompletion__DEBUG = 1
 
 const AmbiCompletion__WORD_SPLITTER = '\V\>\zs\ze\<\|\<\|\>\|\s'
 const CalcScoreV_COEFFICIENT_THRESHOLD = 0.7
@@ -196,7 +196,7 @@ call PerfLog('=== start completion ===')
 
     " Care about a multi-byte word
     let baselen = strlen(substitute(base, '.', 'x', 'g'))
-    let baseSelfScore = CalcScore(split(base, '\V\zs'), split(base, '\V\zs'), 0.0)
+    let baseSelfScore = CalcScore(SplitChars(base), SplitChars(base), 0.0)
     call PerfLog('baseSelfScore=' .. string(baseSelfScore))
     "let baselen = strlen(base)
 
@@ -242,11 +242,12 @@ call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^
 " call PerfLog('^^^ sorted candidates ^^^')
 
 call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
-    let baselist = split(tolower(base), '\V\zs')
+    let baselist = SplitChars(tolower(base))
 
     let bestscore = baseSelfScore
     for word in candidates
-        let score = CalcScore(baselist, split(tolower(word), '\V\zs'), bestscore * geta)
+
+        let score = CalcScore(baselist, SplitChars(tolower(word)), bestscore * geta)
         "echom 'score: ' . word . ' ' . string(score)
         "call Log(word . ' ' . score)
 
@@ -380,6 +381,16 @@ def CompareByScoreAndWord(word1: list<any>, word2: list<any>): number
         return 1
     endif
     return 0
+enddef
+
+def SplitChars(str: string): list<string>
+    let result: list<string>
+
+    for i in range(0, strchars(str) - 1)
+        add(result, strcharpart(str, i, 1))
+    endfor
+
+    return result
 enddef
 
 let PerfLog_RELSTART: float = reltime()
