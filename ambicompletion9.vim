@@ -227,10 +227,10 @@ call PerfLog('vvv merging global candidates vvv')
 call PerfLog('^^^ merged global candidates ^^^')
 
 call PerfLog('vvv pre-filtering candidates(' .. string(len(candidates)) .. ') vvv')
-    call filter(candidates, { idx, val -> 
-                \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
-                \ })
-    call PerfLog('[1]' .. string(len(candidates)))
+    "call filter(candidates, { idx, val -> 
+    "            \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
+    "            \ })
+    "call PerfLog('[1]' .. string(len(candidates)))
     call filter(candidates, { idx, val ->
                 \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
                 \ })
@@ -353,8 +353,10 @@ enddef
 def EstimateScore(str: string): number
     let score = 0
     let combo = 0
-    for i in range(0, len(str))
-        if strpart(str, i, 1) == ' '
+
+    const SPACENR = char2nr(" ")
+    for n in str2list(str)
+        if n == SPACENR
             score = score + 1 + combo
             combo = 1
         else
