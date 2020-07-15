@@ -57,7 +57,7 @@ set completefunc=g:AmbiCompletion9
 "
 " Memo:
 "
-"   g:AmbiCompletion__DEBUG = 0
+"   AmbiCompletion__DEBUG = 0
 "   
 "       outputs (does :echom) each completion logs.
 "
@@ -65,22 +65,22 @@ set completefunc=g:AmbiCompletion9
 command! AmbiCompletionRefreshCache call ClearCache()
 
 if !exists('g:AmbiCompletion_cacheCheckpoint')
-    let g:AmbiCompletion_cacheCheckpoint = 50
+    g:AmbiCompletion_cacheCheckpoint = 50
 endif
 
 if !exists('g:AmbiCompletion_minimalLength')
-    let g:AmbiCompletion_minimalLength = 4
+    g:AmbiCompletion_minimalLength = 4
 endif
 
 if !exists('g:AmbiCompletion_preferPrefixMatch')
-    let g:AmbiCompletion_preferPrefixMatch = 1
+    g:AmbiCompletion_preferPrefixMatch = 1
 endif
 
 
-let g:AmbiCompletion__DEBUG = 0
+const AmbiCompletion__DEBUG = 0
 
-let g:AmbiCompletion__WORD_SPLITTER = '\V\>\zs\ze\<\|\<\|\>\|\s'
-let g:CalcScoreV_COEFFICIENT_THRESHOLD = 0.7
+const AmbiCompletion__WORD_SPLITTER = '\V\>\zs\ze\<\|\<\|\>\|\s'
+const CalcScoreV_COEFFICIENT_THRESHOLD = 0.7
 
 if !exists("lastWord")
     let lastWord = ""
@@ -141,7 +141,7 @@ def ScanBufForWords(bufnr: number)
     " collect words in the buffer
     "let bwords = getbufvar(bufnr, "Ambi_words", {})
     for line in getbufline(bufnr, 1, "$")
-        for word in split(line, g:AmbiCompletion__WORD_SPLITTER)
+        for word in split(line, AmbiCompletion__WORD_SPLITTER)
             if len(word) >= g:AmbiCompletion_minimalLength
                 if !has_key(words, word)
                     let wordstemp: dict<number> = words
@@ -158,10 +158,12 @@ def ScanBufForWords(bufnr: number)
 enddef
 
 def g:AmbiCompletion9(findstart: number, base: string): number
+    Log('findstart')
 
     " Find a target word
 
     if findstart
+        Log('findstart')
         " Get cursor word.
         let lineText = strpart(getline('.'), 0, col('.') - 1)
         "return match(lineText, '\V\w\+\$')
@@ -226,11 +228,11 @@ call PerfLog('^^^ merged global candidates ^^^')
 
 call PerfLog('vvv pre-filtering candidates(' .. string(len(candidates)) .. ') vvv')
     call filter(candidates, { idx, val -> 
-                \ baseSelfScore * (g:CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
+                \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
                 \ })
     call PerfLog('[1]' .. string(len(candidates)))
     call filter(candidates, { idx, val ->
-                \ baseSelfScore * (g:CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
+                \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
                 \ })
     call PerfLog('[2]' .. string(len(candidates)))
 call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^')
@@ -249,13 +251,13 @@ call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
         "call Log(word . ' ' . score)
 
         "call Log(word . ' ' . string(score))
-        "call Log(word . ' ' . string(baseSelfScore * g:CalcScoreV_COEFFICIENT_THRESHOLD * geta))
-        if 0 < score && baseSelfScore * g:CalcScoreV_COEFFICIENT_THRESHOLD * geta <= score
+        "call Log(word . ' ' . string(baseSelfScore * CalcScoreV_COEFFICIENT_THRESHOLD * geta))
+        if 0 < score && baseSelfScore * CalcScoreV_COEFFICIENT_THRESHOLD * geta <= score
             "let bufnr = words[word]
             call add(results, [word, score])
 
             "if bestscore != 0
-            "    let g:AmbiCompletion__DEBUG = 0
+            "    let AmbiCompletion__DEBUG = 0
             "endif
 
             if bestscore < score
@@ -268,7 +270,8 @@ call PerfLog('^^^ filtered candidates(' .. len(results) .. ') ^^^')
     if len(results) <= 1 && !again
         call Log("- - again!! - -")
         again = 1
-        call  Complete(findstart, base)
+        let C: func = Complete
+        C(findstart, base)
         return 0
     endif
 
@@ -327,7 +330,7 @@ def CalcScore(word1: list<string>, word2: list<string>, bestscore: float): numbe
             " speed tuning
             if (i == j || len1 - 1 <= i) && !superstring
                 "call LogHook(word2, "deepest", 'curr[j]('. string(curr[j]) .') + 2*(len2 - 1 - j)(' . string(2*(len2 - 1 - j)) . ') < bestscore  -  1('.string(bestscore - 1).')')
-                if curr[j] + 2 * (len2 - 1 - j) < bestscore * g:CalcScoreV_COEFFICIENT_THRESHOLD + 1
+                if curr[j] + 2 * (len2 - 1 - j) < bestscore * CalcScoreV_COEFFICIENT_THRESHOLD + 1
                     " no hope...
                     return 0
                 endif
@@ -381,20 +384,20 @@ enddef
 
 let PerfLog_RELSTART: float = reltime()
 def PerfLog(msg: string)
-    if g:AmbiCompletion__DEBUG
+    if AmbiCompletion__DEBUG
         call Log(' ' .. reltimestr(reltime(PerfLog_RELSTART)) ..  ' ' .. msg)
         PerfLog_RELSTART = reltime()
     endif
 enddef
 
 def Log(msg: string)
-    if g:AmbiCompletion__DEBUG
+    if AmbiCompletion__DEBUG
         echom strftime('%c') .. ' ' .. msg
     endif
 enddef
 
 def LogHook(word: string, trigger: string, msg: string)
-    if g:AmbiCompletion__DEBUG
+    if AmbiCompletion__DEBUG
         let word = word
         if type(word) == 3 "List
             let word = join(word, '')
