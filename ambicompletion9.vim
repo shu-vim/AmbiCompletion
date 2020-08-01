@@ -91,11 +91,13 @@ endif
 
 if !exists("words")
     # {word: first_bufnr}
-    let words: dict<number> = {}
+    let words: dict<number> = {"": 1}
+    call remove(words, "")
 endif
 
 # {bufnr: tick}
-let bufs: dict<number> = {}
+let bufs: dict<number> = {"": 1}
+call remove(bufs, "")
 
 def ClearCache()
     lastWord = ""
@@ -157,12 +159,8 @@ def ScanBufForWords(bufnr: number)
 enddef
 
 def g:AmbiCompletion9(findstart: number, base: string): number
-    Log('findstart')
-
     # Find a target word
-
     if findstart
-        Log('findstart')
         # Get cursor word.
         let lineText = strpart(getline('.'), 0, col('.') - 1)
         #return match(lineText, '\V\w\+\$')
@@ -195,7 +193,7 @@ call PerfLog('=== start completion ===')
 
     # Care about a multi-byte word
     let baselen = strchars(base)
-    let baseSelfScore = CalcScore(SplitChars(base), SplitChars(base), 0.0)
+    let baseSelfScore = CalcScore(str2list(base), str2list(base), 0.0)
     call PerfLog('baseSelfScore=' .. string(baseSelfScore))
     #let baselen = strlen(base)
 
@@ -241,12 +239,12 @@ call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^
 # call PerfLog('^^^ sorted candidates ^^^')
 
 call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
-    let baselist = SplitChars(tolower(base))
+    let baselist = str2list(tolower(base))
 
     let bestscore = baseSelfScore
     for word in candidates
 
-        let score = CalcScore(baselist, SplitChars(tolower(word)), bestscore * geta)
+        let score = CalcScore(baselist, str2list(tolower(word)), bestscore * geta)
         #echom 'score: ' . word . ' ' . string(score)
         #call Log(word . ' ' . score)
 
@@ -289,7 +287,7 @@ call PerfLog('=== end completion ===')
     return 0
 enddef
 
-def CalcScore(word1: list<string>, word2: list<string>, bestscore: float): number
+def CalcScore(word1: list<number>, word2: list<number>, bestscore: float): number
     let w1 = word1
     let w2 = word2
     let len1 = len(w1) + 1
@@ -367,7 +365,6 @@ def EstimateScore(str: string): number
 enddef
 
 def CompareByScoreAndWord(word1: list<any>, word2: list<any>): number
-    #hoge
     if word1[1] > word2[1]
         return -1
     elseif word1[1] < word2[1]
@@ -394,7 +391,7 @@ def SplitChars(str: string): list<string>
     return result
 enddef
 
-let PerfLog_RELSTART: float = reltime()
+let PerfLog_RELSTART: number = reltime()[0]
 def PerfLog(msg: string)
     if AmbiCompletion__DEBUG
         call Log(' ' .. reltimestr(reltime(PerfLog_RELSTART)) ..  ' ' .. msg)
@@ -405,6 +402,7 @@ enddef
 def Log(msg: string)
     if AmbiCompletion__DEBUG
         echom strftime('%c') .. ' ' .. msg
+        #call confirm(strftime('%c') .. ' ' .. msg)
     endif
 enddef
 
