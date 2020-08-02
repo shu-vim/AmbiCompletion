@@ -391,7 +391,7 @@ def SplitChars(str: string): list<string>
     return result
 enddef
 
-let PerfLog_RELSTART: number = reltime()[0]
+let PerfLog_RELSTART = reltime()
 def PerfLog(msg: string)
     if AmbiCompletion__DEBUG
         call Log(' ' .. reltimestr(reltime(PerfLog_RELSTART)) ..  ' ' .. msg)
