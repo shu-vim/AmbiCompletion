@@ -193,7 +193,7 @@ call PerfLog('=== start completion ===')
 
     # Care about a multi-byte word
     let baselen = strchars(base)
-    let baseSelfScore = CalcScore(str2list(base), str2list(base), 0.0)
+    let baseSelfScore = CalcScore(str2list(base), str2list(base))
     call PerfLog('baseSelfScore=' .. string(baseSelfScore))
     #let baselen = strlen(base)
 
@@ -242,15 +242,15 @@ call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
     let baselist = str2list(tolower(base))
 
     let bestscore = baseSelfScore
+    const th = baseSelfScore * CalcScoreV_COEFFICIENT_THRESHOLD * geta
     for word in candidates
-
-        let score = CalcScore(baselist, str2list(tolower(word)), bestscore * geta)
+        let score = CalcScore(baselist, str2list(tolower(word)))
         #echom 'score: ' . word . ' ' . string(score)
         #call Log(word . ' ' . score)
 
         #call Log(word . ' ' . string(score))
-        #call Log(word . ' ' . string(baseSelfScore * CalcScoreV_COEFFICIENT_THRESHOLD * geta))
-        if 0 < score && baseSelfScore * CalcScoreV_COEFFICIENT_THRESHOLD * geta <= score
+        #call Log(word . ' ' . string(th))
+        if 0 < score && th <= score
             #let bufnr = words[word]
             call add(results, [word, score])
 
@@ -287,13 +287,13 @@ call PerfLog('=== end completion ===')
     return 0
 enddef
 
-def CalcScore(word1: list<number>, word2: list<number>, bestscore: float): number
+def CalcScore(word1: list<number>, word2: list<number>): number
     let w1 = word1
     let w2 = word2
     let len1 = len(w1) + 1
     let len2 = len(w2) + 1
 
-    let prev = repeat([0], len2)
+    let prev: list<number> = repeat([0], len2)
     let curr: list<number> = repeat([0], len2)
 
     let superstring = (join(word2, '') =~ join(word1, ''))
@@ -302,7 +302,24 @@ def CalcScore(word1: list<number>, word2: list<number>, bestscore: float): numbe
     let r1 = range(1, len1 - 1)
     let r2 = range(1, len2 - 1)
     for i in r1
-        for j in r2
+        ###
+        let firstj: number = 1
+        for k in r2
+            curr[k] = prev[k]
+            firstj = k
+            if w1[i - 1] == w2[k - 1]
+                break
+            endif
+        endfor
+        #Log('firstj=' .. string(firstj))
+        ###
+
+        ###
+        let lastj: number = 0
+        ###
+
+        #for j in r2
+        for j in range(firstj, len2 - 1)
             let x = 0
             #echom 'w1['.(i-1).']:'.w1[i-1]
             #echom 'w2['.(j-1).']:'.w2[j-1]
@@ -310,6 +327,7 @@ def CalcScore(word1: list<number>, word2: list<number>, bestscore: float): numbe
                 x = 1
                 if i - 1 == 0 && j - 1 == 0 && g:AmbiCompletion_preferPrefixMatch != 0
                     x = x + 1
+                    #Log('firstmatch ' .. string(x))
                 endif
                 if 0 <= i - 2 && 0 <= j - 2 && w1[i - 2] == w2[j - 2]
                     x = 2
@@ -320,28 +338,24 @@ def CalcScore(word1: list<number>, word2: list<number>, bestscore: float): numbe
             let m = max([prev[j - 1] + x, prev[j], curr[j - 1] ])
             curr[j] = m
 
-            #call LogHook(word2, "word_here", 'w1['.(i - 1).']:'.w1[i - 1])
-            #call LogHook(word2, "word_here", 'w2['.(j - 1).']:'.w2[j - 1])
-            #call LogHook(word2, "word_here", join(word2, '') . '[' . string(j) . '] score:' . string(curr[j]) . ' curr:[' . string(curr) . '] potential:' . string(2*(len2 - 1 - j)) . ' best:' . string(bestscore))
-            #call LogHook(word2, "word_here", 'i(' . string(i) . ') == j('. string(j) . ') || len1 - 1(' . string(len1 - 1) . ') <= i(' . string(i) . ')')
-
-            # speed tuning
-            if (i == j || len1 - 1 <= i) && !superstring
-                #call LogHook(word2, "deepest", 'curr[j]('. string(curr[j]) .') + 2*(len2 - 1 - j)(' . string(2*(len2 - 1 - j)) . ') < bestscore  -  1('.string(bestscore - 1).')')
-                if curr[j] + 2 * (len2 - 1 - j) < bestscore * CalcScoreV_COEFFICIENT_THRESHOLD + 1
-                    # no hope...
-                    return 0
-                endif
-                #if curr[j] + 2*(len2 - 1 - j) < bestscore
-                #    "call Log("  x")
-                #    return curr[j]
-                #endif
+            ###
+            lastj = j
+            if x != 0
+                break
             endif
+            ###
         endfor
+
+        ###
+        for k in range(lastj + 1, len2 - 1)
+            curr[k] = curr[lastj]
+        endfor
+        ###
+
         let temp = prev
         prev = curr
         curr = temp
-        #echom string(prev)
+        #Log(string(prev))
     endfor
     #echom string(prev)
     return prev[len2 - 1]
@@ -419,5 +433,5 @@ def LogHook(word: string, trigger: string, msg: string)
 enddef
 
 def g:AmbiCompletion9TEST(w1: string, w2: string)
-    echo "'" .. w1 .. "' VS '" .. w2 .. "' => " .. string(CalcScore(split(w1, '\V\zs'), split(w2, '\V\zs'), 0.0))
+    echo "'" .. w1 .. "' VS '" .. w2 .. "' => " .. string(CalcScore(str2list(w1), str2list(w2)))
 enddef
