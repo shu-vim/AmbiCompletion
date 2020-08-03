@@ -224,14 +224,9 @@ call PerfLog('vvv pre-filtering candidates(' .. string(len(candidates)) .. ') vv
     # Candidates need contain at least one char in base
     let CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
 
-    #call filter(candidates, { idx, val -> 
-    #            \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= ((strchars(val) - strchars(substitute(val, CONTAINDEDIN_REGEXP, '', 'g'))) * 2 - 1) * 0.75
-    #            \ })
-    #call PerfLog('[1]' .. string(len(candidates)))
     call filter(candidates, { idx, val ->
                 \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
                 \ })
-    call PerfLog('[2]' .. string(len(candidates)))
 call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^')
 
 # call PerfLog('vvv sorting candidates vvv')
@@ -239,30 +234,52 @@ call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^
 # call PerfLog('^^^ sorted candidates ^^^')
 
 call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
+    PerfBegin('entire')
+    PerfBegin('outside')
     let baselist = str2list(tolower(base))
 
     let bestscore = baseSelfScore
     const th = baseSelfScore * CalcScoreV_COEFFICIENT_THRESHOLD * geta
+    PerfBegin('iter')
+    #for word in candidates
     for word in candidates
+        PerfEnd('iter')
+        PerfEnd('outside')
+        PerfBegin('CalcScore')
         let score = CalcScore(baselist, str2list(tolower(word)))
+        PerfEnd('CalcScore')
+
+        PerfBegin('outside')
         #echom 'score: ' . word . ' ' . string(score)
         #call Log(word . ' ' . score)
 
         #call Log(word . ' ' . string(score))
         #call Log(word . ' ' . string(th))
+        PerfBegin('score refresh')
         if 0 < score && th <= score
             #let bufnr = words[word]
             call add(results, [word, score])
-
-            #if bestscore != 0
-            #    let AmbiCompletion__DEBUG = 0
-            #endif
 
             if bestscore < score
                 bestscore = score
             endif
         endif
+        PerfEnd('score refresh')
+        PerfEnd('outside')
+        PerfBegin('iter')
     endfor
+    PerfEnd('iter')
+    PerfEnd('entire')
+
+    Log('  entire: ' .. string(PerfGet('entire')) .. 'ms')
+    Log('    CalcScore: ' .. string(PerfGet('CalcScore')) .. 'ms')
+    Log('      firstj: ' .. string(PerfGet('firstj')) .. 'ms')
+    Log('      naka: ' .. string(PerfGet('naka')) .. 'ms')
+    Log('      lastj: ' .. string(PerfGet('lastj')) .. 'ms')
+    Log('      swap: ' .. string(PerfGet('swap')) .. 'ms')
+    Log('    outside: ' .. string(PerfGet('outside')) .. 'ms')
+    Log('      score refresh: ' .. string(PerfGet('score refresh')) .. 'ms')
+    Log('    iter: ' .. string(PerfGet('iter')) .. 'ms')
 call PerfLog('^^^ filtered candidates(' .. len(results) .. ') ^^^')
 
     if len(results) <= 1 && !again
@@ -303,6 +320,7 @@ def CalcScore(word1: list<number>, word2: list<number>): number
     let r2 = range(1, len2 - 1)
     for i in r1
         ###
+        PerfBegin('firstj')
         let firstj: number = 1
         for k in r2
             curr[k] = prev[k]
@@ -311,6 +329,7 @@ def CalcScore(word1: list<number>, word2: list<number>): number
                 break
             endif
         endfor
+        PerfEnd('firstj')
         #Log('firstj=' .. string(firstj))
         ###
 
@@ -319,6 +338,7 @@ def CalcScore(word1: list<number>, word2: list<number>): number
         ###
 
         #for j in r2
+        PerfBegin('naka')
         for j in range(firstj, len2 - 1)
             let x = 0
             #echom 'w1['.(i-1).']:'.w1[i-1]
@@ -345,17 +365,23 @@ def CalcScore(word1: list<number>, word2: list<number>): number
             endif
             ###
         endfor
+        PerfEnd('naka')
 
         ###
+        PerfBegin('lastj')
         for k in range(lastj + 1, len2 - 1)
             curr[k] = curr[lastj]
         endfor
+        PerfEnd('lastj')
         ###
 
+        PerfBegin('swap')
         let temp = prev
         prev = curr
         curr = temp
+        PerfEnd('swap')
         #Log(string(prev))
+
     endfor
     #echom string(prev)
     return prev[len2 - 1]
@@ -405,11 +431,46 @@ def SplitChars(str: string): list<string>
     return result
 enddef
 
+###### DEBUGGING ######
+
 let PerfLog_RELSTART = reltime()
 def PerfLog(msg: string)
     if AmbiCompletion__DEBUG
         call Log(' ' .. reltimestr(reltime(PerfLog_RELSTART)) ..  ' ' .. msg)
         PerfLog_RELSTART = reltime()
+    endif
+enddef
+
+let PerfEntryMap: dict<list<any>> = {"": []}
+call remove(PerfEntryMap, "")
+
+let PerfDurMap: dict<float> = {"": 0.0}
+call remove(PerfDurMap, "")
+
+def PerfBegin(entry: string)
+    if AmbiCompletion__DEBUG
+        PerfEntryMap[entry] = reltime()
+        if !has_key(PerfDurMap, entry)
+            PerfDurMap[entry] = 0.0
+        endif
+    endif
+enddef
+
+def PerfEnd(entry: string)
+    if AmbiCompletion__DEBUG
+        if !has_key(PerfEntryMap, entry)
+            PerfBegin(entry)
+        endif
+        PerfDurMap[entry] = PerfDurMap[entry] + reltimefloat(reltime(PerfEntryMap[entry])) * 1000
+        PerfEntryMap[entry] = reltime()
+    endif
+enddef
+
+def PerfGet(entry: string): float
+    if has_key(PerfEntryMap, entry)
+        return PerfDurMap[entry]
+    else
+        return 0.0
     endif
 enddef
 
