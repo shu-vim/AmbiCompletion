@@ -330,7 +330,7 @@ def CalcScore(word1: list<number>, word2: list<number>): number
             endif
         endfor
         PerfEnd('firstj')
-        #Log('firstj=' .. string(firstj))
+        # Log('firstj=' .. string(firstj))
         ###
 
         ###
@@ -358,29 +358,29 @@ def CalcScore(word1: list<number>, word2: list<number>): number
             let m = max([prev[j - 1] + x, prev[j], curr[j - 1] ])
             curr[j] = m
 
-            ###
-            lastj = j
-            if x != 0
-                break
-            endif
-            ###
+            # ###
+            # lastj = j
+            # if x != 0
+            #     break
+            # endif
+            # ###
         endfor
         PerfEnd('naka')
 
-        ###
-        PerfBegin('lastj')
-        for k in range(lastj + 1, len2 - 1)
-            curr[k] = curr[lastj]
-        endfor
-        PerfEnd('lastj')
-        ###
+        # ###
+        # PerfBegin('lastj')
+        # for k in range(lastj + 1, len2 - 1)
+        #     curr[k] = curr[lastj]
+        # endfor
+        # PerfEnd('lastj')
+        # ###
 
         PerfBegin('swap')
         let temp = prev
         prev = curr
         curr = temp
         PerfEnd('swap')
-        #Log(string(prev))
+        # Log(string(prev))
 
     endfor
     #echom string(prev)
@@ -494,5 +494,5 @@ def LogHook(word: string, trigger: string, msg: string)
 enddef
 
 def g:AmbiCompletion9TEST(w1: string, w2: string)
-    echo "'" .. w1 .. "' VS '" .. w2 .. "' => " .. string(CalcScore(str2list(w1), str2list(w2)))
+    echo "'" .. w1 .. "' VS '" .. w2 .. "' => " .. string(CalcScore(str2list(tolower(w1)), str2list(tolower(w2))))
 enddef
