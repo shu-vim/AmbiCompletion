@@ -361,7 +361,6 @@ def CalcScore(word1: list<number>, word2: list<number>): number
             curr[j] = m
         endfor
         PerfEnd('naka')
-
         PerfBegin('swap')
         let temp = prev
         prev = curr
