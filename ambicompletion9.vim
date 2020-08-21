@@ -106,9 +106,12 @@ def ClearCache()
 enddef
 
 def ScanBufs()
+    PerfReset()
     for buf in getbufinfo()
         call ScanBufForWords(buf.bufnr)
     endfor
+    Log('  cache remove: ' .. string(PerfGet('cache remove')) .. 'ms')
+    Log('  cache collect: ' .. string(PerfGet('cache collect')) .. 'ms')
 enddef
 
 def ScanBufForWords(bufnr: number)
@@ -133,28 +136,31 @@ def ScanBufForWords(bufnr: number)
     bufs = bufstemp
 
     # remove all words in the buffer
+    PerfBegin("cache remove")
     for w in keys(words)
         if words[w] == bufnr
             call remove(words, w)
         endif
     endfor
+    PerfEnd("cache remove")
 
     # collect words in the buffer
     #let bwords = getbufvar(bufnr, "Ambi_words", {})
+    PerfBegin("cache collect")
     for line in getbufline(bufnr, 1, "$")
         for word in split(line, AmbiCompletion__WORD_SPLITTER)
+        #for word in split(join(getbufline(bufnr, 1, "$")), AmbiCompletion__WORD_SPLITTER)
             if len(word) >= g:AmbiCompletion_minimalLength
                 if !has_key(words, word)
+                    #words[word] = bufnr
                     let wordstemp: dict<number> = words
                     wordstemp[word] = bufnr
                     words = wordstemp
                 endif
-                #if !has_key(bwords, word)
-                #    let bwords[word] = bufnr
-                #endif
             endif
         endfor
     endfor
+    PerfEnd("cache collect")
     #call setbufvar(bufnr, "Ambi_words", bwords)
 enddef
 
@@ -189,6 +195,7 @@ enddef
 #function! Complete(findstart, base, words)
 def Complete(findstart: number, base: string): any
     # Complete
+call PerfReset()
 call PerfLog('=== start completion ===')
 
     # Care about a multi-byte word
@@ -275,7 +282,6 @@ call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
     Log('    CalcScore: ' .. string(PerfGet('CalcScore')) .. 'ms')
     Log('      firstj: ' .. string(PerfGet('firstj')) .. 'ms')
     Log('      naka: ' .. string(PerfGet('naka')) .. 'ms')
-    Log('      lastj: ' .. string(PerfGet('lastj')) .. 'ms')
     Log('      swap: ' .. string(PerfGet('swap')) .. 'ms')
     Log('    outside: ' .. string(PerfGet('outside')) .. 'ms')
     Log('      score refresh: ' .. string(PerfGet('score refresh')) .. 'ms')
@@ -330,11 +336,7 @@ def CalcScore(word1: list<number>, word2: list<number>): number
             endif
         endfor
         PerfEnd('firstj')
-        #Log('firstj=' .. string(firstj))
-        ###
-
-        ###
-        let lastj: number = 0
+        # Log('firstj=' .. string(firstj))
         ###
 
         #for j in r2
@@ -418,7 +420,7 @@ enddef
 
 ###### DEBUGGING ######
 
-let PerfLog_RELSTART = reltime()
+let PerfLog_RELSTART: list<any> = reltime()
 def PerfLog(msg: string)
     if AmbiCompletion__DEBUG
         call Log(' ' .. reltimestr(reltime(PerfLog_RELSTART)) ..  ' ' .. msg)
@@ -431,6 +433,14 @@ call remove(PerfEntryMap, "")
 
 let PerfDurMap: dict<float> = {"": 0.0}
 call remove(PerfDurMap, "")
+
+def PerfReset()
+    PerfEntryMap = {"": []}
+    call remove(PerfEntryMap, "")
+
+    PerfDurMap = {"": 0.0}
+    call remove(PerfDurMap, "")
+enddef
 
 def PerfBegin(entry: string)
     if AmbiCompletion__DEBUG
@@ -479,5 +489,5 @@ def LogHook(word: string, trigger: string, msg: string)
 enddef
 
 def g:AmbiCompletion9TEST(w1: string, w2: string)
-    echo "'" .. w1 .. "' VS '" .. w2 .. "' => " .. string(CalcScore(str2list(w1), str2list(w2)))
+    echo "'" .. w1 .. "' VS '" .. w2 .. "' => " .. string(CalcScore(str2list(tolower(w1)), str2list(tolower(w2))))
 enddef
