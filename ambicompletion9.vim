@@ -187,7 +187,7 @@ def g:AmbiCompletion9(findstart: number, base: string): number
 enddef
 
 #function! Complete(findstart, base, words)
-def Complete(findstart: number, base: string)
+def Complete(findstart: number, base: string): any
     # Complete
 call PerfLog('=== start completion ===')
 
@@ -357,30 +357,15 @@ def CalcScore(word1: list<number>, word2: list<number>): number
             endif
             let m = max([prev[j - 1] + x, prev[j], curr[j - 1] ])
             curr[j] = m
-
-            ###
-            lastj = j
-            if x != 0
-                break
-            endif
-            ###
         endfor
         PerfEnd('naka')
-
-        ###
-        PerfBegin('lastj')
-        for k in range(lastj + 1, len2 - 1)
-            curr[k] = curr[lastj]
-        endfor
-        PerfEnd('lastj')
-        ###
 
         PerfBegin('swap')
         let temp = prev
         prev = curr
         curr = temp
         PerfEnd('swap')
-        #Log(string(prev))
+        # Log(string(prev))
 
     endfor
     #echom string(prev)
