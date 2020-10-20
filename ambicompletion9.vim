@@ -47,6 +47,12 @@ vim9script
 #       non-0: each candidate word gets +1 point if starts with the word under
 #       the cursor
 #       0: gets no extra point
+#
+#   g:AmbiCompletion_useMatchFuzzy = 0
+#
+#       non-0: use matchfuzzy() to filter candidates strictly. All candidates
+#       must contain all characters you typed.
+#       0: do not use matchfuzzy()
 # 
 # Commands:
 #   
@@ -73,6 +79,10 @@ endif
 
 if !exists('g:AmbiCompletion_preferPrefixMatch')
     g:AmbiCompletion_preferPrefixMatch = 1
+endif
+
+if !exists('g:AmbiCompletion_useMatchFuzzy')
+    g:AmbiCompletion_useMatchFuzzy = 0
 endif
 
 
@@ -218,12 +228,16 @@ call PerfLog('vvv merging global candidates vvv')
 call PerfLog('^^^ merged global candidates ^^^')
 
 call PerfLog('vvv pre-filtering candidates(' .. string(len(candidates)) .. ') vvv')
-    # Candidates need contain at least one char in base
-    var CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
+    if g:AmbiCompletion_useMatchFuzzy
+        candidates = matchfuzzy(candidates, base)
+    else
+        # Candidates need contain at least one char in base
+        var CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
 
-    call filter(candidates, { idx, val ->
-                \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
-                \ })
+        call filter(candidates, { idx, val ->
+                    \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
+                    \ })
+    endif
 call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^')
 
 # call PerfLog('vvv sorting candidates vvv')
