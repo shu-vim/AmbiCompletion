@@ -81,23 +81,13 @@ const AmbiCompletion__DEBUG = 0
 const AmbiCompletion__WORD_SPLITTER = '\V\>\zs\ze\<\|\<\|\>\|\s'
 const CalcScoreV_COEFFICIENT_THRESHOLD = 0.7
 
-if !exists("lastWord")
-    let lastWord = ""
-endif
+var lastWord = ""
 
-if !exists("again")
-    let again = 0
-endif
-
-if !exists("words")
-    # {word: first_bufnr}
-    let words: dict<number> = {"": 1}
-    call remove(words, "")
-endif
+var again = 0
+var words: dict<number> = {}
 
 # {bufnr: tick}
-let bufs: dict<number> = {"": 1}
-call remove(bufs, "")
+var bufs: dict<number> = {}
 
 def ClearCache()
     lastWord = ""
@@ -115,12 +105,12 @@ def ScanBufs()
 enddef
 
 def ScanBufForWords(bufnr: number)
-    let bi = getbufinfo(bufnr)
-    let bi0 = bi[0]
-    let v = bi0.variables
-    let tick = v.changedtick
+    var bi = getbufinfo(bufnr)
+    var bi0 = bi[0]
+    var v = bi0.variables
+    var tick = v.changedtick
 
-    let lasttick = -g:AmbiCompletion_cacheCheckpoint
+    var lasttick = -g:AmbiCompletion_cacheCheckpoint
     if has_key(bufs, bufnr)
         lasttick = bufs[bufnr]
     endif
@@ -131,7 +121,7 @@ def ScanBufForWords(bufnr: number)
 
     #call Log('  scan ' . getbufinfo(bufnr)[0].name . ' ' . lasttick . ' ' . tick)
 
-    let bufstemp: dict<number> = bufs
+    var bufstemp: dict<number> = bufs
     bufstemp[bufnr] = tick
     bufs = bufstemp
 
@@ -153,7 +143,7 @@ def ScanBufForWords(bufnr: number)
             if len(word) >= g:AmbiCompletion_minimalLength
                 if !has_key(words, word)
                     #words[word] = bufnr
-                    let wordstemp: dict<number> = words
+                    var wordstemp: dict<number> = words
                     wordstemp[word] = bufnr
                     words = wordstemp
                 endif
@@ -168,15 +158,15 @@ def g:AmbiCompletion9(findstart: number, base: string): number
     # Find a target word
     if findstart
         # Get cursor word.
-        let lineText = strpart(getline('.'), 0, col('.') - 1)
+        var lineText = strpart(getline('.'), 0, col('.') - 1)
         #return match(lineText, '\V\w\+\$')
 
         # I want get a last word(maybe a multi-byte char)!!
-        let lineWords = split(lineText, '\V\<')
+        var lineWords = split(lineText, '\V\<')
         if len(lineWords) == 0
             return match(lineText, '\V\w\+\$')
         else
-            let cursorWord = lineWords[-1]
+            var cursorWord = lineWords[-1]
             #echom 'cursorWord:' . cursorWord
             #echom 'result:' . strridx(lineText, cursorWord)
             return strridx(lineText, cursorWord)
@@ -184,7 +174,7 @@ def g:AmbiCompletion9(findstart: number, base: string): number
     endif
 
     #if 0 && exists('b:Ambi_words')
-    #    let bwords = getbufvar(getbufinfo('$')[0].bufnr, "Ambi_words", {})
+    #    var bwords = getbufvar(getbufinfo('$')[0].bufnr, "Ambi_words", {})
     #    call Complete(findstart, base, keys(bwords))
     #endif
     call Complete(findstart, base)
@@ -199,8 +189,8 @@ call PerfReset()
 call PerfLog('=== start completion ===')
 
     # Care about a multi-byte word
-    let baselen = strchars(base)
-    let baseSelfScore = CalcScore(str2list(base), str2list(base))
+    var baselen = strchars(base)
+    var baseSelfScore = CalcScore(str2list(base), str2list(base))
     call PerfLog('baseSelfScore=' .. string(baseSelfScore))
     #let baselen = strlen(base)
 
@@ -209,7 +199,7 @@ call PerfLog('=== start completion ===')
 	endif
 
     # geta
-    let geta = 1.0
+    var geta = 1.0
     if again || lastWord == base
         geta = 0.5
     else
@@ -220,16 +210,16 @@ call PerfLog('vvv updating cache vvv')
 call PerfLog('^^^ updated cache ^^^')
     endif
 
-    let results = []
+    var results = []
 
 call PerfLog('vvv merging global candidates vvv')
     #let candidates = words
-    let candidates = keys(words)
+    var candidates = keys(words)
 call PerfLog('^^^ merged global candidates ^^^')
 
 call PerfLog('vvv pre-filtering candidates(' .. string(len(candidates)) .. ') vvv')
     # Candidates need contain at least one char in base
-    let CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
+    var CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
 
     call filter(candidates, { idx, val ->
                 \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
@@ -243,9 +233,9 @@ call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^
 call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
     PerfBegin('entire')
     PerfBegin('outside')
-    let baselist = str2list(tolower(base))
+    var baselist = str2list(tolower(base))
 
-    let bestscore = baseSelfScore
+    var bestscore = baseSelfScore
     const th = baseSelfScore * CalcScoreV_COEFFICIENT_THRESHOLD * geta
     PerfBegin('iter')
     #for word in candidates
@@ -253,7 +243,7 @@ call PerfLog('vvv filtering candidates(' .. string(len(candidates)) .. ') vvv')
         PerfEnd('iter')
         PerfEnd('outside')
         PerfBegin('CalcScore')
-        let score = CalcScore(baselist, str2list(tolower(word)))
+        var score = CalcScore(baselist, str2list(tolower(word)))
         PerfEnd('CalcScore')
 
         PerfBegin('outside')
@@ -291,7 +281,7 @@ call PerfLog('^^^ filtered candidates(' .. len(results) .. ') ^^^')
     if len(results) <= 1 && !again
         call Log("- - again!! - -")
         again = 1
-        let C: func = Complete
+        var C: func = Complete
         C(findstart, base)
         return 0
     endif
@@ -311,23 +301,23 @@ call PerfLog('=== end completion ===')
 enddef
 
 def CalcScore(word1: list<number>, word2: list<number>): number
-    let w1 = word1
-    let w2 = word2
-    let len1 = len(w1) + 1
-    let len2 = len(w2) + 1
+    var w1 = word1
+    var w2 = word2
+    var len1 = len(w1) + 1
+    var len2 = len(w2) + 1
 
-    let prev: list<number> = repeat([0], len2)
-    let curr: list<number> = repeat([0], len2)
+    var prev: list<number> = repeat([0], len2)
+    var curr: list<number> = repeat([0], len2)
 
-    let superstring = (join(word2, '') =~ join(word1, ''))
+    var superstring = (join(word2, '') =~ join(word1, ''))
 
     #echom string(prev)
-    let r1 = range(1, len1 - 1)
-    let r2 = range(1, len2 - 1)
+    var r1 = range(1, len1 - 1)
+    var r2 = range(1, len2 - 1)
     for i in r1
         ###
         PerfBegin('firstj')
-        let firstj: number = 1
+        var firstj: number = 1
         for k in r2
             curr[k] = prev[k]
             firstj = k
@@ -342,7 +332,7 @@ def CalcScore(word1: list<number>, word2: list<number>): number
         #for j in r2
         PerfBegin('naka')
         for j in range(firstj, len2 - 1)
-            let x = 0
+            var x = 0
             #echom 'w1['.(i-1).']:'.w1[i-1]
             #echom 'w2['.(j-1).']:'.w2[j-1]
             if w1[i - 1] == w2[j - 1]
@@ -357,12 +347,12 @@ def CalcScore(word1: list<number>, word2: list<number>): number
             else
                 x = 0
             endif
-            let m = max([prev[j - 1] + x, prev[j], curr[j - 1] ])
+            var m = max([prev[j - 1] + x, prev[j], curr[j - 1] ])
             curr[j] = m
         endfor
         PerfEnd('naka')
         PerfBegin('swap')
-        let temp = prev
+        var temp = prev
         prev = curr
         curr = temp
         PerfEnd('swap')
@@ -374,8 +364,8 @@ def CalcScore(word1: list<number>, word2: list<number>): number
 enddef
 
 def EstimateScore(str: string): number
-    let score = 0
-    let combo = 0
+    var score = 0
+    var combo = 0
 
     const SPACENR = char2nr(" ")
     for n in str2list(str)
@@ -408,7 +398,7 @@ def CompareByScoreAndWord(word1: list<any>, word2: list<any>): number
 enddef
 
 def SplitChars(str: string): list<string>
-    let result: list<string>
+    var result: list<string>
 
     for i in range(0, strchars(str) - 1)
         add(result, strcharpart(str, i, 1))
@@ -419,7 +409,7 @@ enddef
 
 ###### DEBUGGING ######
 
-let PerfLog_RELSTART: list<any> = reltime()
+var PerfLog_RELSTART: list<any> = reltime()
 def PerfLog(msg: string)
     if AmbiCompletion__DEBUG
         call Log(' ' .. reltimestr(reltime(PerfLog_RELSTART)) ..  ' ' .. msg)
@@ -427,10 +417,10 @@ def PerfLog(msg: string)
     endif
 enddef
 
-let PerfEntryMap: dict<list<any>> = {"": []}
+var PerfEntryMap: dict<list<any>> = {"": []}
 call remove(PerfEntryMap, "")
 
-let PerfDurMap: dict<float> = {"": 0.0}
+var PerfDurMap: dict<float> = {"": 0.0}
 call remove(PerfDurMap, "")
 
 def PerfReset()
@@ -477,9 +467,9 @@ enddef
 
 def LogHook(word: string, trigger: string, msg: string)
     if AmbiCompletion__DEBUG
-        let word = word
+        var word = word
         if type(word) == 3 "List
-            let word = join(word, '')
+            var word = join(word, '')
         endif
         if word == trigger
             echom strftime('%c') .. ' ' .. msg
