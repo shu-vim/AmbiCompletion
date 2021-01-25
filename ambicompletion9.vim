@@ -234,9 +234,9 @@ call PerfLog('vvv pre-filtering candidates(' .. string(len(candidates)) .. ') vv
         # Candidates need contain at least one char in base
         var CONTAINDEDIN_REGEXP = '\V\[' .. tolower(join(uniq(sort(split(base, '\V\zs'))), '')) .. ']'
 
-        call filter(candidates, { idx, val ->
+        call filter(candidates, (idx, val) =>
                     \ baseSelfScore * (CalcScoreV_COEFFICIENT_THRESHOLD * geta - 0.1) <= EstimateScore(substitute(tolower(val), CONTAINDEDIN_REGEXP, ' ', 'g'))
-                    \ })
+                    \ )
     endif
 call PerfLog('^^^ pre-filtered candidates(' .. string(len(candidates)) .. ') ^^^')
 
